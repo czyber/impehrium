@@ -4,6 +4,7 @@ from datetime import datetime
 import uvicorn
 from fastapi import FastAPI, APIRouter
 from fastapi.params import Depends
+from starlette.middleware.cors import CORSMiddleware
 
 from models import Server
 from request_models import CreateServerRequest
@@ -38,6 +39,12 @@ async def delete_server(server_id: str, server_service: ServerService = Depends(
 
 app = FastAPI()
 app.include_router(server_router)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # or restrict to frontend domain
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 if __name__ == "__main__":
