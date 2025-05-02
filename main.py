@@ -16,7 +16,7 @@ from utils.dependencies import get_server_service
 server_router = APIRouter(prefix="/server")
 
 
-@server_router.post("/")
+@server_router.post("")
 async def create_server(create_server_request: CreateServerRequest, server_service: ServerService = Depends(get_server_service)) -> CreateServerResponse:
     server = await server_service.create_server(create_server_request)
     return CreateServerResponse(
@@ -25,6 +25,7 @@ async def create_server(create_server_request: CreateServerRequest, server_servi
         started_at=server.started_at,
         ended_at=server.ended_at,
     )
+
 
 @server_router.delete("/{server_id}")
 async def delete_server(server_id: str, server_service: ServerService = Depends(get_server_service)) -> CreateServerResponse:
