@@ -42,4 +42,4 @@ app.include_router(server_router)
 
 if __name__ == "__main__":
     asyncio.run(sessionmanager.create_tables())
-    uvicorn.run(app, port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
