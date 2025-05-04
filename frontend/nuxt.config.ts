@@ -15,9 +15,16 @@ export default defineNuxtConfig({
     ],
   },
 
-  modules: ['shadcn-nuxt', '@nuxtjs/supabase', 'nuxt-lucide-icons'],
+  modules: ['shadcn-nuxt', '@nuxtjs/supabase', 'nuxt-lucide-icons', '@nuxtjs/i18n'],
   shadcn: {
     prefix: '',
     componentDir: './components/ui'
+  },
+  i18n: {
+    defaultLocale: 'en',
+    locales: [
+      { code: 'en', name: 'English', file: 'en.json' },
+      { code: 'ger', name: 'German', file: 'ger.json' }
+    ]
   }
 })
