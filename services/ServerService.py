@@ -9,26 +9,23 @@ from datetime import datetime
 
 
 class ServerService:
-    def __init__(self, session: AsyncSession):
-        self.session = session
-
-    async def create_server(self, request: CreateServerRequest) -> Server:
+    async def create_server(self, session: AsyncSession, request: CreateServerRequest) -> Server:
         server = Server(
             id=str(uuid.uuid4()),
             name=request.name,
             started_at=datetime.now(),
         )
-        self.session.add(server)
-        await self.session.commit()
-        await self.session.refresh(server)
+        session.add(server)
+        await session.commit()
+        await session.refresh(server)
         return server
 
-    async def delete_server(self, server_id: str) -> Server:
-        async with self.session:
+    async def delete_server(self, session: AsyncSession, server_id: str) -> Server:
+        async with session:
             statement = select(Server).filter(Server.id == server_id)
-            promise = await self.session.execute(statement)
+            promise = await session.execute(statement)
             server = promise.scalar()
-        await self.session.delete(server)
-        await self.session.commit()
+        await session.delete(server)
+        await session.commit()
         return server
 

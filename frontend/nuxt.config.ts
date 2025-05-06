@@ -15,7 +15,7 @@ export default defineNuxtConfig({
     ],
   },
 
-  modules: ['shadcn-nuxt', '@nuxtjs/supabase', 'nuxt-lucide-icons', '@nuxtjs/i18n'],
+  modules: ['@pinia/nuxt', 'shadcn-nuxt', '@nuxtjs/supabase', 'nuxt-lucide-icons', '@nuxtjs/i18n'],
   shadcn: {
     prefix: '',
     componentDir: './components/ui'

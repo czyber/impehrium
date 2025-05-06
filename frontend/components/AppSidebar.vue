@@ -1,91 +1,76 @@
 <script setup lang="ts">
-import { Calendar, Home, Inbox, Search, Settings } from "lucide-vue-next"
+
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import {DropdownMenu} from "~/components/ui/dropdown-menu";
+  type SidebarProps,
+  SidebarRail,
+} from '@/components/ui/sidebar'
+import {LightbulbIcon, LucideMessageCircleQuestion, UploadIcon} from "lucide-vue-next";
 import {useAuth} from "~/composables/useAuth";
+
+const props = defineProps<SidebarProps>()
 
 const {signOut} = useAuth()
 
-// Menu items.
-const items = [
-  {
-    title: "Home",
-    url: "#",
-    icon: Home,
-  },
-  {
-    title: "Inbox",
-    url: "#",
-    icon: Inbox,
-  },
-  {
-    title: "Calendar",
-    url: "#",
-    icon: Calendar,
-  },
-  {
-    title: "Search",
-    url: "#",
-    icon: Search,
-  },
-  {
-    title: "Settings",
-    url: "#",
-    icon: Settings,
-  },
-];
+const data = {
+  versions: ['1.0.1', '1.1.0-alpha', '2.0.0-beta1'],
+  navMain: [
+    {
+      title: 'General',
+      url: '#',
+      items: [
+        {
+          title: 'Ask a question',
+          url: '#',
+          icon: LightbulbIcon
+        },
+        {
+          title: 'Upload Homework',
+          url: '/homework-assistant',
+          icon: UploadIcon
+        },
+      ],
+    },
+  ],
+}
 </script>
 
 <template>
-  <Sidebar>
+  <Sidebar v-bind="props">
+    <SidebarHeader>
+      <h1>Athena</h1>
+    </SidebarHeader>
     <SidebarContent>
-      <SidebarGroup>
-        <SidebarGroupLabel>Application</SidebarGroupLabel>
+      <SidebarGroup v-for="item in data.navMain" :key="item.title">
+        <SidebarGroupLabel>{{ item.title }}</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu>
-              <SidebarMenuItem v-for="item in items" :key="item.title">
-                <SidebarMenuButton asChild>
-                    <a :href="item.url">
-                      <component :is="item.icon" />
-                      <span>{{item.title}}</span>
-                    </a>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+            <SidebarMenuItem v-for="childItem in item.items" :key="childItem.title">
+              <SidebarMenuButton :is-active="childItem.isActive">
+                <component :is="childItem.icon" v-if="childItem.icon" />
+                <a :href="childItem.url">{{ childItem.title }}</a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
     </SidebarContent>
+    <SidebarRail />
     <SidebarFooter>
-              <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton>
-                  <LucideUser2/> Username
-                  <LucideChevronUp class="ml-auto" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                side="top"
-                class="w-[--reka-popper-anchor-width]"
-              >
-                <DropdownMenuItem @click="signOut" class="hover:cursor-pointer">
-                  <LucideLogOut/>
-                  <span>Sign out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
+      <SidebarContent>
+        <SidebarMenuButton class="hover:cursor-pointer" @click="signOut">
+          <LucideLogOut/>
+          Sign out
+        </SidebarMenuButton>
+      </SidebarContent>
     </SidebarFooter>
   </Sidebar>
 </template>

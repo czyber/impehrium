@@ -12,7 +12,7 @@ from utils.db import sessionmanager, get_db
 
 
 async def seed_database():
-    async with sessionmanager.session() as session:
+    async with sessionmanager._session() as session:
         now = datetime.datetime.utcnow()
 
         # 1. Create Server
