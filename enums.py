@@ -18,3 +18,9 @@ class HomeworkAssistanceRunStepState(StrEnum):
 class HomeworkAssistanceRunStepName(StrEnum):
     LABELING = "LABELING"
     EXPLANATION = "EXPLANATION"
+
+
+class MediaUploadState(StrEnum):
+    PENDING = "PENDING"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"

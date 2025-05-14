@@ -19,7 +19,8 @@
         <CardFooter>
           <div class="grid w-full max-w-sm items-center gap-1.5">
             <Label for="file">File</Label>
-            <Input id="file" type="file">Upload files</Input>
+            <Input id="file" type="file" @change="handleFileChange" />
+            <Button @click="uploadFile" :disabled="!selectedFile">Upload file</Button>
           </div>
         </CardFooter>
       </Card>
@@ -34,7 +35,7 @@
           </CardDescription>
         </CardHeader>
         <CardContent class="flex-1 flex flex-col">
-          <MarkdownComponent :content="markdown"/>
+          <MarkdownComponent :content="''"/>
           <div class="flex flex-col flex-1 bg-white dark:bg-gray-900 rounded-lg ">
             <!-- Chat Messages -->
             <div
@@ -105,27 +106,41 @@ import { useRuntimeConfig } from '#imports'
 
 const fileUploaded = ref(false)
 
-const markdown = `**Homework Assignment Explanation:**
-The task is to calculate the total volume of a building with given side lengths of **4 meters (m)**, **10 meters (m)**, and **3 meters (m)**.
+const selectedFile = ref<File | null>(null)
 
-### **What to Do?**
-1. **Understand the shape**: The building is assumed to be a rectangular prism (a box-shaped structure), as three distinct side lengths are provided.
-2. **Use the formula for volume**:
-   $$
-   \\text{Volume} = \\text{Length} \\times \\text{Width} \\times \\text{Height}
-   $$
-3. **Multiply the given dimensions**:
-   $$
-   4\\, \\text{m} \\times 10\\, \\text{m} \\times 3\\, \\text{m} = 120\\, \\text{m}^3
-   $$
+function handleFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (input.files && input.files.length > 0) {
+    selectedFile.value = input.files[0]
+  }
+}
 
-### **Key Concepts to Understand**
-1. **Volume of a rectangular prism**: Recognize that volume measures 3D space and requires multiplying all three dimensions.
-2. **Units**: Ensure all measurements are in the same unit (meters here) and that the result is in cubic meters (m³).
-3. **Application to real-world structures**: Relate abstract volume calculations to practical scenarios like buildings.
+const homeworkAssitantRunId = ref<string | null>(null)
+const userStore = useUserStore()
+await userStore.fetchUser()
 
-**Final Answer**:
-The total volume of the building is **120 m³**.`
+async function uploadFile() {
+  if (!selectedFile.value) return
+
+  const formData = new FormData()
+  formData.append('file', selectedFile.value)
+
+  const baseUrl = useRuntimeConfig().public.apiBase
+  const res = await fetch(`${baseUrl}/user/${userStore.currentUser.id}/upload-homework`, {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!res.ok) {
+    console.error(await res.text())
+    return
+  }
+
+  const result = await res.json()
+  homeworkAssitantRunId.value = result.homework_assistance_run_id
+  fileUploaded.value = true
+  console.log("Started homework assistance run: ", result.homework_assistance_run_id)
+}
 
 interface Message {
   from: 'user' | 'assistant'

@@ -53,4 +53,4 @@ class CreateUserResponse(BaseModel):
 
 
 class CreateHomeworkAssistantRunResponse(BaseModel):
-    homework_run_id: str
+    homework_assistance_run_id: str

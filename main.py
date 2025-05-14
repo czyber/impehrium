@@ -1,53 +1,32 @@
 import asyncio
+import os
+import uuid
 from datetime import datetime
 
+import supabase
 import uvicorn
-from fastapi import FastAPI, APIRouter
-from fastapi.params import Depends
+from fastapi import FastAPI, APIRouter, UploadFile, HTTPException
+from fastapi.params import Depends, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.background import BackgroundTasks
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import StreamingResponse
 
-from enums import HomeworkAssistanceRunState
-from models import Server
+from enums import HomeworkAssistanceRunState, MediaUploadState
+from models import Media
 from request_models import CreateServerRequest, CreateServerResponse, CreateUserRequest, CreateUserResponse, \
     UserWithIdModel, CreateHomeworkAssistantRunRequest, CreateHomeworkAssistantRunResponse, HomeworkAssistanceRunStatus, \
     Message
 from services.HomeworkService import HomeworkService, StepLogicFactory
-from services.ServerService import ServerService
 from services.UserService import UserService
 from utils.db import sessionmanager, get_db
-from utils.dependencies import get_server_service, get_user_service, get_homework_service
+from utils.dependencies import get_user_service, get_homework_service
 
-server_router = APIRouter(prefix="/server")
 
 user_router = APIRouter(prefix="/user")
 
 homework_assistant_router = APIRouter(prefix="/homework-assistant")
-
-@server_router.post("")
-async def create_server(create_server_request: CreateServerRequest, server_service: ServerService = Depends(get_server_service), session: AsyncSession = Depends(get_db)) -> CreateServerResponse:
-    server = await server_service.create_server(create_server_request, session=session)
-    return CreateServerResponse(
-        id=server.id,
-        name=server.name,
-        started_at=server.started_at,
-        ended_at=server.ended_at,
-    )
-
-
-@server_router.delete("/{server_id}")
-async def delete_server(server_id: str, server_service: ServerService = Depends(get_server_service), session: AsyncSession = Depends(get_db)) -> CreateServerResponse:
-    server = await server_service.delete_server(server_id, session=session)
-    return CreateServerResponse(
-        id=server.id,
-        name=server.name,
-        started_at=server.started_at,
-        ended_at=server.ended_at,
-    )
-
 
 @user_router.post("")
 async def create_user(create_user_request: CreateUserRequest, user_service: UserService = Depends(get_user_service), session: AsyncSession = Depends(get_db)) -> CreateUserResponse:
@@ -98,9 +77,60 @@ async def chat(homework_assistance_run_id: str, messages: list[Message], homewor
     return StreamingResponse(homework_service.on_chat_message(session=session, homework_assistance_run_id=homework_assistance_run_id, messages=messages), media_type="text/plain")
 
 
+@user_router.post("/{user_id}/upload-homework/")
+async def upload_homework(
+    user_id: str,
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    homework_service: HomeworkService = Depends(get_homework_service),
+    session: AsyncSession = Depends(get_db),
+) -> CreateHomeworkAssistantRunResponse:
+    SUPABASE_URL = os.environ["SUPABASE_URL"]
+    SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+    SUPABASE_BUCKET = "homework-files"
+    supabase_client: supabase.AsyncClient = await supabase.acreate_client(SUPABASE_URL, SUPABASE_KEY)
+    contents = await file.read()
+
+    filename = f"{uuid.uuid4()}_{file.filename}"
+    storage_path = f"{user_id}/homeworks/{filename}"
+    media = Media(
+        path=storage_path,
+        state=MediaUploadState.PENDING,
+    )
+    session.add(media)
+    await session.commit()
+    await session.refresh(media)
+
+    homework_assistance_run = await homework_service.create_homework_assistance_run(
+        request=CreateHomeworkAssistantRunRequest(
+            file_id=media.id,
+            user_id=user_id,
+        ),
+        session=session
+    )
+
+    for step in homework_assistance_run.steps:
+        logic = StepLogicFactory.resolve(step)
+        background_tasks.add_task(logic.run, homework_assistance_run.id)
+
+    try:
+        await supabase_client.storage.from_(SUPABASE_BUCKET).upload(storage_path, contents)
+    except Exception as e:
+        media.state = MediaUploadState.FAILED
+        raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
+    else:
+        media.state = MediaUploadState.SUCCESS
+    finally:
+        await session.commit()
+        await session.refresh(media)
+        await session.refresh(homework_assistance_run)
+
+    return CreateHomeworkAssistantRunResponse(
+        homework_assistance_run_id=homework_assistance_run.id,
+    )
+
 app = FastAPI()
 
-app.include_router(server_router)
 app.include_router(user_router)
 
 app.include_router(homework_assistant_router)

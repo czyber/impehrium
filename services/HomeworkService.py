@@ -64,10 +64,9 @@ class LabelingStepLogic(AbstractStepLogic):
     def step_name(cls) -> HomeworkAssistanceRunStepName:
         return HomeworkAssistanceRunStepName.LABELING
 
-    async def _run(self, run_id: str) -> None:
+    async def _run(self, run_id: str) -> bool:
         new_session_manager = DatabaseSessionManager(DATABASE_URL)
         async with new_session_manager.session() as session:
-            await asyncio.sleep(2)
             result = await session.execute(
                 select(HomeworkAssistanceRun).where(HomeworkAssistanceRun.id == run_id)
             )
@@ -86,7 +85,7 @@ class ExplanationStepLogic(AbstractStepLogic):
     def step_name(cls) -> HomeworkAssistanceRunStepName:
         return HomeworkAssistanceRunStepName.EXPLANATION
 
-    async def _run(self, run_id: str) -> None:
+    async def _run(self, run_id: str) -> bool:
         new_session_manager = DatabaseSessionManager(DATABASE_URL)
         async with new_session_manager.session() as session:
             result = await session.execute(
@@ -99,10 +98,18 @@ class ExplanationStepLogic(AbstractStepLogic):
             step.state = HomeworkAssistanceRunStepState.STARTED
             session.add(step)
             await session.commit()
-            client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"), base_url="https://api.deepseek.com")
-            messages = [{"role": "user", "content": "Explain the following Homework Assignment, what is to do, which concepts are important to understand?: Calculate the total volume of a building with the side lengths 4mx10mx3m"}]
+            client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY_OPENAI"))
+            example_homework = """
+            Aufgabe 2 – Sachaufgabe:
+            Ein Schulbus bringt jeden Tag 38 Kinder zur Schule.
+            Wie viele Kinder bringt der Bus in 5 Tagen zur Schule?
+            
+            Rechnung:
+            Antwortsatz:
+            """
+            messages = [{"role": "user", "content": f"USE MARKDOWN! - Explain the following Homework Assignment, what is to do, which concepts are important to understand?: {example_homework}"}]
             response = await client.chat.completions.create(
-                model="deepseek-reasoner",
+                model="gpt-4o-mini",
                 messages=messages,
                 stream=True
             )
@@ -119,6 +126,8 @@ class ExplanationStepLogic(AbstractStepLogic):
             await session.commit()
             await session.refresh(run)
             await session.refresh(step)
+
+            return True
 
 
 class StepLogicFactory:
