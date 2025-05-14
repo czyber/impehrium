@@ -6,7 +6,7 @@ from openai import AsyncOpenAI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from request_models import CreateHomeworkAssistantRunRequest, Message
+from request_models import CreateHomeworkAssistantRunRequest, Message, GetHomeworkAssistanceRunStatusResponse
 import uuid
 from enums import HomeworkAssistanceRunState, HomeworkAssistanceRunStepState, HomeworkAssistanceRunStepName
 from utils.db import sessionmanager, DatabaseSessionManager, DATABASE_URL
@@ -197,4 +197,18 @@ class HomeworkService:
                     yield chunk.choices[0].delta.content
         except Exception as e:
             yield f"\n[ERROR]: {str(e)}"
+
+    async def get_homework_assistant_run_steps_states(self, homework_assistance_run_id: str, session: AsyncSession) -> GetHomeworkAssistanceRunStatusResponse:
+        result = await session.execute(
+            select(
+                HomeworkAssistanceRun,
+            ).where(
+                HomeworkAssistanceRun.id == homework_assistance_run_id
+            )
+        )
+        run = result.scalar_one_or_none()
+        return GetHomeworkAssistanceRunStatusResponse(
+            homework_assistance_run_id=homework_assistance_run_id,
+            step_states=[{"name": step.step_name, "state": step.state} for step in run.steps],
+        )
 

@@ -139,6 +139,7 @@ async function uploadFile() {
   const result = await res.json()
   homeworkAssitantRunId.value = result.homework_assistance_run_id
   fileUploaded.value = true
+  pollWorkflowSteps(result.homework_assistance_run_id)
   console.log("Started homework assistance run: ", result.homework_assistance_run_id)
 }
 
@@ -152,6 +153,57 @@ const draft = ref('')
 const loading = ref(false)
 let controller: AbortController | null = null
 const container = ref<HTMLElement | null>(null)
+const pollingInterval = 2000 // ms
+let pollingTimer: number | null = null
+
+const completedSteps = ref<Set<string>>(new Set())
+
+const stepResults = ref<Record<string, any>>({})
+
+async function pollWorkflowSteps(runId: string) {
+  const baseUrl = useRuntimeConfig().public.apiBase
+
+  const poll = async () => {
+    try {
+      const res = await fetch(`${baseUrl}/homework-assistant/status/${runId}`)
+      if (!res.ok) {
+        console.error("Polling failed", await res.text())
+        return
+      }
+
+      const data = await res.json()
+      const steps = data.step_states || []
+      console.log(steps)
+
+      let allDone = true
+
+      for (const step of steps) {
+        const { name, state } = step
+
+        if (state === 'SUCCEEDED' && !completedSteps.value.has(name)) {
+          completedSteps.value.add(name)
+        }
+
+        if (state !== 'SUCCEEDED') {
+          allDone = false
+        }
+      }
+
+      if (allDone) {
+        console.log('All steps completed')
+        clearInterval(pollingTimer!)
+        pollingTimer = null
+      }
+
+    } catch (e) {
+      console.error("Polling error:", e)
+      clearInterval(pollingTimer!)
+    }
+  }
+
+  pollingTimer = window.setInterval(poll, pollingInterval)
+}
+
 
 function autoResize(event: Event) {
   const el = event.target as HTMLTextAreaElement

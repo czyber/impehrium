@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from enums import HomeworkAssistanceRunState
+from enums import HomeworkAssistanceRunState, HomeworkAssistanceRunStepState, HomeworkAssistanceRunStepName
 
 
 class CreateServerRequest(BaseModel):
@@ -54,3 +54,7 @@ class CreateUserResponse(BaseModel):
 
 class CreateHomeworkAssistantRunResponse(BaseModel):
     homework_assistance_run_id: str
+
+class GetHomeworkAssistanceRunStatusResponse(BaseModel):
+    homework_assistance_run_id: str
+    step_states: list[dict]

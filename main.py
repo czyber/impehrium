@@ -17,7 +17,7 @@ from enums import HomeworkAssistanceRunState, MediaUploadState
 from models import Media
 from request_models import CreateServerRequest, CreateServerResponse, CreateUserRequest, CreateUserResponse, \
     UserWithIdModel, CreateHomeworkAssistantRunRequest, CreateHomeworkAssistantRunResponse, HomeworkAssistanceRunStatus, \
-    Message
+    Message, GetHomeworkAssistanceRunStatusResponse
 from services.HomeworkService import HomeworkService, StepLogicFactory
 from services.UserService import UserService
 from utils.db import sessionmanager, get_db
@@ -128,6 +128,17 @@ async def upload_homework(
     return CreateHomeworkAssistantRunResponse(
         homework_assistance_run_id=homework_assistance_run.id,
     )
+
+
+@homework_assistant_router.get("/status/{homework_assistance_run_id}")
+async def get_homework_assistance_run_status(
+        homework_assistance_run_id: str,
+        homework_service: HomeworkService = Depends(get_homework_service),
+        session: AsyncSession = Depends(get_db),
+) -> GetHomeworkAssistanceRunStatusResponse:
+    step_states = await homework_service.get_homework_assistant_run_steps_states(homework_assistance_run_id=homework_assistance_run_id, session=session)
+    return step_states
+
 
 app = FastAPI()
 
