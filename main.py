@@ -64,11 +64,12 @@ async def trigger_homework_assistance_run(create_homework_assistant_run_request:
 
 @homework_assistant_router.get("/{homework_assistance_run_id}")
 async def get_homework_assistance_run_state(homework_assistance_run_id: str, homework_service: HomeworkService = Depends(get_homework_service), session: AsyncSession = Depends(get_db)) -> HomeworkAssistanceRunStatus:
-    homework_assistance_run = await homework_service.get_run(homework_assistance_run_id, session=session)
+    homework_assistance_run = await homework_service.get_run(homework_assistance_run_id=homework_assistance_run_id, session=session)
     return HomeworkAssistanceRunStatus(
         homework_assistance_run_id=homework_assistance_run.id,
         labels=homework_assistance_run.labels,
         state=HomeworkAssistanceRunState[homework_assistance_run.state].value,  # type: ignore
+        explanation=homework_assistance_run.explanation
     )
 
 
@@ -138,7 +139,6 @@ async def get_homework_assistance_run_status(
 ) -> GetHomeworkAssistanceRunStatusResponse:
     step_states = await homework_service.get_homework_assistant_run_steps_states(homework_assistance_run_id=homework_assistance_run_id, session=session)
     return step_states
-
 
 app = FastAPI()
 

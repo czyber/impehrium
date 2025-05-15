@@ -1,6 +1,5 @@
-
 <template>
-  <div v-html="renderedHtml" class="prose max-w-none dark:prose-invert"/>
+  <div v-html="renderedHtml" class="prose max-w-none markdown dark:prose-invert"></div>
 </template>
 
 <script setup>
@@ -8,7 +7,6 @@ import { computed } from 'vue';
 import MarkdownIt from 'markdown-it';
 import mk from 'markdown-it-katex';
 
-// Define props
 const props = defineProps({
   content: {
     type: String,

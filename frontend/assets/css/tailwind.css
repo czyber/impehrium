@@ -122,3 +122,44 @@
     @apply bg-background text-foreground;
   }
 }
+
+
+   /* Headings */
+.markdown h1 {
+   @apply text-3xl font-bold mb-4;
+ }
+
+.markdown h2 {
+  @apply text-2xl font-semibold mb-3;
+}
+
+.markdown h3 {
+  @apply text-xl font-semibold mb-2;
+}
+
+.markdown h4 {
+  @apply text-lg font-medium  mb-1;
+}
+
+/* Paragraphs */
+.markdown p {
+  @apply my-2 leading-relaxed;
+}
+
+/* Lists */
+.markdown ul {
+  @apply list-disc pl-6 my-2;
+}
+
+.markdown ol {
+  @apply list-decimal pl-6 my-2;
+}
+
+.markdown li {
+  @apply mb-1;
+}
+
+/* KaTeX blocks or LaTeX output */
+.markdown .katex-display {
+  @apply my-4;
+}

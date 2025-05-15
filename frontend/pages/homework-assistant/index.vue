@@ -25,7 +25,7 @@
         </CardFooter>
       </Card>
     </transition>
-    <div class="flex flex-col overflow-hidden space-y-4">
+    <div class="flex flex-col min-w-full overflow-hidden">
       <!-- Explanation Section -->
       <Card class="h-full flex flex-col ">
         <CardHeader>
@@ -35,9 +35,10 @@
           </CardDescription>
         </CardHeader>
         <CardContent class="flex-1 flex flex-col">
-          <MarkdownComponent :content="''"/>
+          <MarkdownComponent :content="currentHomeworkAssistanceRun?.explanation || ''"/>
+          <!-- Chat -->
           <div class="flex flex-col flex-1 bg-white dark:bg-gray-900 rounded-lg ">
-            <!-- Chat Messages -->
+            <!-- Messages -->
             <div
               ref="container"
               class="flex-1 overflow-y-auto space-y-4 px-4 pt-4"
@@ -108,6 +109,7 @@ const fileUploaded = ref(false)
 
 const selectedFile = ref<File | null>(null)
 
+
 function handleFileChange(event: Event) {
   const input = event.target as HTMLInputElement
   if (input.files && input.files.length > 0) {
@@ -158,7 +160,13 @@ let pollingTimer: number | null = null
 
 const completedSteps = ref<Set<string>>(new Set())
 
-const stepResults = ref<Record<string, any>>({})
+interface StepResultMap {
+  explanation: string
+}
+
+const stepResults = ref<Partial<StepResultMap>>({})
+const explanation = computed(() => stepResults.value.explanation || '')
+const currentHomeworkAssistanceRun = ref(null)
 
 async function pollWorkflowSteps(runId: string) {
   const baseUrl = useRuntimeConfig().public.apiBase
@@ -181,6 +189,12 @@ async function pollWorkflowSteps(runId: string) {
         const { name, state } = step
 
         if (state === 'SUCCEEDED' && !completedSteps.value.has(name)) {
+          const res = await fetch(`${baseUrl}/homework-assistant/${runId}`)
+          const result = await res.json()
+
+          currentHomeworkAssistanceRun.value = result
+          console.log(currentHomeworkAssistanceRun.value)
+
           completedSteps.value.add(name)
         }
 

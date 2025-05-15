@@ -25,6 +25,7 @@ class HomeworkAssistanceRunStatus(BaseModel):
     homework_assistance_run_id: str
     labels: list[str]
     state: HomeworkAssistanceRunState
+    explanation: str | None
 
 
 class CreateUserRequest(BaseModel):

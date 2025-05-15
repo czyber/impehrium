@@ -1,4 +1,4 @@
-module.exports = {
-    content: ['./src/**/*.{vue,js,ts,jsx,tsx}'], // ensure your .vue files are scanned
-    plugins: [require('@tailwindcss/typography')]
-  }
+export default {
+  content: ['./components/**/*.{vue,js}', './pages/**/*.{vue,js}'],
+  plugins: [require('@tailwindcss/typography')],
+}
