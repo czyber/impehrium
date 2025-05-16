@@ -5,25 +5,7 @@
       @leave="leave"
       appear
     >
-      <Card v-if="!fileUploaded" class="max-w-1/2 overflow-hidden">
-        <CardHeader>
-          <CardTitle>AI Homework Assistant</CardTitle>
-          <CardDescription>
-            Upload homework to get help from our AI homework assistant.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          Our artificial intelligence assistant will analyze the provided
-          homework and offer assistance in understanding and solving the task.
-        </CardContent>
-        <CardFooter>
-          <div class="grid w-full max-w-sm items-center gap-1.5">
-            <Label for="file">File</Label>
-            <Input id="file" type="file" @change="handleFileChange" />
-            <Button @click="uploadFile" :disabled="!selectedFile">Upload file</Button>
-          </div>
-        </CardFooter>
-      </Card>
+      <FileUploadCard @upload="handleUpload"/>
     </transition>
     <div class="flex flex-col min-w-full overflow-hidden">
       <!-- Explanation Section -->
@@ -98,30 +80,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onUpdated, nextTick } from 'vue'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import MarkdownComponent from '~/components/MarkdownComponent.vue'
 import { useRuntimeConfig } from '#imports'
-
-
-const fileUploaded = ref(false)
-
-const selectedFile = ref<File | null>(null)
-
-
-function handleFileChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  if (input.files && input.files.length > 0) {
-    selectedFile.value = input.files[0]
-  }
-}
+import {useHomeworkAssistantStore} from "~/stores/homework-assistant-store";
 
 const homeworkAssitantRunId = ref<string | null>(null)
 const userStore = useUserStore()
+const homeworkAssistantStore = useHomeworkAssistantStore()
+const { selectedFile } = storeToRefs(homeworkAssistantStore)
 await userStore.fetchUser()
 
-async function uploadFile() {
+async function handleUpload() {
   if (!selectedFile.value) return
 
   const formData = new FormData()
@@ -140,9 +111,8 @@ async function uploadFile() {
 
   const result = await res.json()
   homeworkAssitantRunId.value = result.homework_assistance_run_id
-  fileUploaded.value = true
-  pollWorkflowSteps(result.homework_assistance_run_id)
-  console.log("Started homework assistance run: ", result.homework_assistance_run_id)
+  await pollWorkflowSteps(result.homework_assistance_run_id)
+  // console.log("Started homework assistance run: ", result.homework_assistance_run_id)
 }
 
 interface Message {

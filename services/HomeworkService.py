@@ -1,5 +1,7 @@
 import asyncio
 import os
+import re
+import textwrap
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
@@ -107,7 +109,9 @@ class ExplanationStepLogic(AbstractStepLogic):
             Rechnung:
             Antwortsatz:
             """
-            messages = [{"role": "user", "content": f"USE MARKDOWN! - Explain the following Homework Assignment, what is to do, which concepts are important to understand?: {example_homework}"}]
+            messages = [{"role": "user", "content": textwrap.dedent(f"""
+                USE MARKDOWN! - Generate an explanation for a parent teaching it's child the following Homework Assignment, what is to do, which concepts are important to understand?: {example_homework}
+            """)}]
             response = await client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=messages,
@@ -116,10 +120,28 @@ class ExplanationStepLogic(AbstractStepLogic):
             complete_message = ""
             async for message in response:
                 if hasattr(message.choices[0], "delta") and hasattr(message.choices[0].delta, "content") and message.choices[0].delta.content:
-                    print(message.choices[0].delta.content, end="")
                     complete_message += message.choices[0].delta.content if message.choices[0].delta.content else ""
 
+            complete_message = re.sub(
+                r'\\\[(.*?)\\\]',       # match \[ … \]
+                r'$$\1$$',              # replace with $$…$$
+                complete_message,
+                flags=re.DOTALL         # allow newlines inside
+            )
+
+            def inline_repl(m):
+                content = m.group(1).strip()   # remove any spaces around
+                return f'${content}$'          # no spaces inside
+
+            complete_message = re.sub(
+                r'\\\(\s*(.*?)\s*\\\)',  # match \( … \) allowing surrounding whitespace
+                inline_repl,
+                complete_message,
+                flags=re.DOTALL
+            )
+
             run.explanation = complete_message
+
             step.state = HomeworkAssistanceRunStepState.SUCCEEDED
             session.add(step)
             session.add(run)

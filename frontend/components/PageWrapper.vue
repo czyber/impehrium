@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-full px-6 py-8 max-w-full mx-auto">
+  <div class="flex flex-col h-full px-6 py-8 min-w-full mx-auto">
     <header v-if="title" class="mb-6">
       <h1 class="text-xl font-semibold">{{ title }}</h1>
     </header>
