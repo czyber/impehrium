@@ -21,6 +21,10 @@ class User(Base):
     auth_user_id: Mapped[str]
     first_name: Mapped[str]
     last_name: Mapped[str]
+    homework_assistance_runs: Mapped["HomeworkAssistanceRun"] = relationship(
+        back_populates="user",
+        cascade="all, delete, delete-orphan",
+    )
 
     @property
     def full_name(self):
@@ -39,20 +43,73 @@ class HomeworkAssistanceRunStep(Base):
         self.state = HomeworkAssistanceRunState.SUCCEEDED
 
 
+class Task(Base):
+    __tablename__ = "tasks"
+    id: Mapped[str] = mapped_column(primary_key=True, default=uuid4_str)
+    key: Mapped[str]
+    description: Mapped[str]
+    concepts: Mapped[list[str]] = mapped_column(JSONB)
+
+    run_id: Mapped[str] = mapped_column(ForeignKey("homework_assistance_runs.id", ondelete="CASCADE"))
+    run: Mapped["HomeworkAssistanceRun"] = relationship(
+        back_populates="tasks",
+        foreign_keys=[run_id],
+    )
+
+
+class Media(Base):
+    __tablename__ = "media"
+    id: Mapped[str] = mapped_column(primary_key=True, default=uuid4_str)
+    path: Mapped[str]
+    state: Mapped[str]
+    run_id: Mapped[str] = mapped_column(ForeignKey("homework_assistance_runs.id", ondelete="CASCADE"))
+    run: Mapped["HomeworkAssistanceRun"] = relationship(
+        back_populates="medias",
+    )
+
+
+
 class HomeworkAssistanceRun(Base):
     __tablename__ = "homework_assistance_runs"
 
     id: Mapped[str] = mapped_column(primary_key=True, default=uuid4_str)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    file_id: Mapped[str | None]
+    user: Mapped["User"] = relationship(
+        back_populates="homework_assistance_runs",
+        foreign_keys=[user_id],
+        lazy="selectin",
+    )
     state: Mapped[str]
     labels: Mapped[list[str] | None] = mapped_column(JSONB)
-    task: Mapped[str | None]
+
+    tasks: Mapped[list[Task]] = relationship(
+        back_populates="run",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        foreign_keys=[Task.run_id],  # explicitly specify foreign key here
+    )
+
+    selected_task_id: Mapped[str | None] = mapped_column(
+        ForeignKey("tasks.id", ondelete="SET NULL")
+    )
+    selected_task: Mapped["Task | None"] = relationship(
+        foreign_keys=[selected_task_id],
+        lazy="joined"
+    )
+
     explanation: Mapped[str | None]
     steps: Mapped[list[HomeworkAssistanceRunStep]] = relationship(
         back_populates="run",
         cascade="all, delete-orphan",
         lazy="selectin"
     )
-
+    medias: Mapped[list["Media"]] = relationship(
+        back_populates="run",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        foreign_keys=[Media.run_id]
+    )
     @property
     def finished(self) -> bool:
         for step in self.steps:
@@ -68,10 +125,5 @@ class HomeworkAssistanceRun(Base):
         return None
 
 
-class Media(Base):
-    __tablename__ = "media"
-    id: Mapped[str] = mapped_column(primary_key=True, default=uuid4_str)
-    path: Mapped[str]
-    state: Mapped[str]
 
 

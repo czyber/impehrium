@@ -1,4 +1,9 @@
 import asyncio
+
+from PIL import Image
+from pdf2image import convert_from_path
+import base64
+from io import BytesIO
 import os
 import re
 import textwrap
@@ -18,9 +23,9 @@ from abc import ABC, abstractmethod
 import asyncio
 from sqlalchemy import select
 from enums import HomeworkAssistanceRunStepName
-from models import HomeworkAssistanceRun, HomeworkAssistanceRunStep
+from models import HomeworkAssistanceRun, HomeworkAssistanceRunStep, Media
 from utils.db import sessionmanager
-
+from utils.utils import get_supabase_client
 
 load_dotenv()
 
@@ -81,6 +86,89 @@ class LabelingStepLogic(AbstractStepLogic):
             await session.commit()
             return True
 
+import tempfile
+from pdf2image import convert_from_bytes
+import base64
+from io import BytesIO
+import os
+
+class ExtractTasksStepLogic(AbstractStepLogic):
+    @classmethod
+    def step_name(cls) -> HomeworkAssistanceRunStepName:
+        return HomeworkAssistanceRunStepName.EXTRACT_TASKS
+
+    async def _run(self, run_id: str) -> bool:
+        new_session_manager = DatabaseSessionManager(DATABASE_URL)
+        async with new_session_manager.session() as session:
+            result = await session.execute(
+                select(HomeworkAssistanceRun).where(HomeworkAssistanceRun.id == run_id)
+            )
+            run = result.scalar_one_or_none()
+            if not run:
+                return False
+
+            step = run.get_step(self.step.step_name)
+            step.state = HomeworkAssistanceRunStepState.STARTED
+            session.add(step)
+            await session.commit()
+            await session.refresh(run)
+
+            media = run.medias[0]
+
+            supabase_client = await get_supabase_client()
+            client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY_OPENAI"))
+
+            bucket_name = "homework-files"
+
+            downloaded_bytes = await supabase_client.storage.from_(bucket_name).download(
+                media.path
+            )
+
+            file_extension = os.path.splitext(media.path)[1].lower()
+
+            def encode_image(image):
+                buffered = BytesIO()
+                image.save(buffered, format="PNG")
+                return base64.b64encode(buffered.getvalue()).decode('utf-8')
+
+            if file_extension == '.pdf':
+                pages = convert_from_bytes(downloaded_bytes, dpi=300)
+                first_page_image = pages[0]
+            else:
+                first_page_image = Image.open(BytesIO(downloaded_bytes)).convert('RGB')
+
+            image_base64 = encode_image(first_page_image)
+
+            response = await client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "Extract all homework tasks from this image and respond with XML structure:\n<tasks>\n  <task>\n    <exercise-identifier>The identifier or task name (e.g. Exercise 321)</exercise-identifier>\n    <exercise-description>The extracted text of the description of the exercise</exercise-description>\n  </task>\n  ...\n</tasks>"},
+                            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}},
+                        ],
+                    }
+                ],
+                stream=True,
+            )
+
+            complete_message = ""
+            async for message in response:
+                if hasattr(message.choices[0], "delta") and hasattr(message.choices[0].delta, "content"):
+                    complete_message += message.choices[0].delta.content or ""
+            print(complete_message)
+
+            run.extracted_tasks = complete_message
+            step.state = HomeworkAssistanceRunStepState.SUCCEEDED
+
+            session.add(run)
+            session.add(step)
+            await session.commit()
+            await session.refresh(run)
+            await session.refresh(step)
+
+            return True
 
 class ExplanationStepLogic(AbstractStepLogic):
     @classmethod
@@ -156,6 +244,7 @@ class StepLogicFactory:
     _registry: dict[HomeworkAssistanceRunStepName, type[AbstractStepLogic]] = {
         LabelingStepLogic.step_name(): LabelingStepLogic,
         ExplanationStepLogic.step_name(): ExplanationStepLogic,
+        ExtractTasksStepLogic.step_name(): ExtractTasksStepLogic,
     }
 
     @classmethod
@@ -170,19 +259,22 @@ class HomeworkService:
     async def create_homework_assistance_run(self, session: AsyncSession, request: CreateHomeworkAssistantRunRequest) -> HomeworkAssistanceRun:
         homework_assistance_run = HomeworkAssistanceRun(
             id=str(uuid.uuid4()),
+            file_id=request.file_id,
             state=HomeworkAssistanceRunState.STARTED,
+            user_id=request.user_id,
             steps=[
                 HomeworkAssistanceRunStep(
                     step_name=HomeworkAssistanceRunStepName.LABELING,
                 ),
                 HomeworkAssistanceRunStep(
                     step_name=HomeworkAssistanceRunStepName.EXPLANATION,
+                ),
+                HomeworkAssistanceRunStep(
+                    step_name=HomeworkAssistanceRunStepName.EXTRACT_TASKS
                 )
             ]
         )
         session.add(homework_assistance_run)
-        await session.commit()
-        await session.refresh(homework_assistance_run)
         return homework_assistance_run
 
     async def get_run(self, session: AsyncSession, homework_assistance_run_id: str) -> HomeworkAssistanceRun:

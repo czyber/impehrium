@@ -22,7 +22,7 @@ from services.HomeworkService import HomeworkService, StepLogicFactory
 from services.UserService import UserService
 from utils.db import sessionmanager, get_db
 from utils.dependencies import get_user_service, get_homework_service
-
+from utils.utils import get_supabase_client
 
 user_router = APIRouter(prefix="/user")
 
@@ -85,23 +85,19 @@ async def upload_homework(
     file: UploadFile = File(...),
     homework_service: HomeworkService = Depends(get_homework_service),
     session: AsyncSession = Depends(get_db),
+    supabase_client: supabase.AsyncClient = Depends(get_supabase_client)
 ) -> CreateHomeworkAssistantRunResponse:
-    SUPABASE_URL = os.environ["SUPABASE_URL"]
-    SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
     SUPABASE_BUCKET = "homework-files"
-    supabase_client: supabase.AsyncClient = await supabase.acreate_client(SUPABASE_URL, SUPABASE_KEY)
     contents = await file.read()
 
     filename = f"{uuid.uuid4()}_{file.filename}"
     storage_path = f"{user_id}/homeworks/{filename}"
     media = Media(
+        id=str(uuid.uuid4()),
         path=storage_path,
         state=MediaUploadState.PENDING,
     )
     session.add(media)
-    await session.commit()
-    await session.refresh(media)
-
     homework_assistance_run = await homework_service.create_homework_assistance_run(
         request=CreateHomeworkAssistantRunRequest(
             file_id=media.id,
@@ -109,6 +105,9 @@ async def upload_homework(
         ),
         session=session
     )
+    media.run_id = homework_assistance_run.id
+    await session.commit()
+    await session.refresh(homework_assistance_run)
 
     for step in homework_assistance_run.steps:
         logic = StepLogicFactory.resolve(step)
@@ -122,6 +121,7 @@ async def upload_homework(
     else:
         media.state = MediaUploadState.SUCCESS
     finally:
+        session.add(media)
         await session.commit()
         await session.refresh(media)
         await session.refresh(homework_assistance_run)

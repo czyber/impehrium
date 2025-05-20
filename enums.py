@@ -18,6 +18,7 @@ class HomeworkAssistanceRunStepState(StrEnum):
 class HomeworkAssistanceRunStepName(StrEnum):
     LABELING = "LABELING"
     EXPLANATION = "EXPLANATION"
+    EXTRACT_TASKS = "EXTRACT_TASKS"
 
 
 class MediaUploadState(StrEnum):
