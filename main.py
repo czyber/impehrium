@@ -6,7 +6,9 @@ from datetime import datetime
 import supabase
 import uvicorn
 from fastapi import FastAPI, APIRouter, UploadFile, HTTPException
+from fastapi.openapi.utils import get_openapi
 from fastapi.params import Depends, File
+from fastapi.routing import APIRoute
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.background import BackgroundTasks
 from starlette.middleware.cors import CORSMiddleware
@@ -17,7 +19,7 @@ from enums import HomeworkAssistanceRunState, MediaUploadState
 from models import Media
 from request_models import CreateServerRequest, CreateServerResponse, CreateUserRequest, CreateUserResponse, \
     UserWithIdModel, CreateHomeworkAssistantRunRequest, CreateHomeworkAssistantRunResponse, HomeworkAssistanceRunStatus, \
-    Message, GetHomeworkAssistanceRunStatusResponse
+    Message, GetHomeworkAssistanceRunStatusResponse, GetHomeworkAssistanceRunTasksResponse, TaskResponse
 from services.HomeworkService import HomeworkService, StepLogicFactory
 from services.UserService import UserService
 from utils.db import sessionmanager, get_db
@@ -28,7 +30,7 @@ user_router = APIRouter(prefix="/user")
 
 homework_assistant_router = APIRouter(prefix="/homework-assistant")
 
-@user_router.post("")
+@user_router.post("", tags=["user"])
 async def create_user(create_user_request: CreateUserRequest, user_service: UserService = Depends(get_user_service), session: AsyncSession = Depends(get_db)) -> CreateUserResponse:
     user = await user_service.create_user(request=create_user_request, session=session)
     return CreateUserResponse(
@@ -41,7 +43,7 @@ async def create_user(create_user_request: CreateUserRequest, user_service: User
     )
 
 
-@user_router.get("/{user_id}")
+@user_router.get("/{user_id}", tags=["user"])
 async def get_user(user_id: str, user_service: UserService = Depends(get_user_service), session: AsyncSession = Depends(get_db)) -> UserWithIdModel:
     user = await user_service.get_user_by_auth_user_id(session=session, auth_user_id=user_id)
     return UserWithIdModel(
@@ -51,7 +53,7 @@ async def get_user(user_id: str, user_service: UserService = Depends(get_user_se
     )
 
 
-@homework_assistant_router.post("")
+@homework_assistant_router.post("", tags=["homework"])
 async def trigger_homework_assistance_run(create_homework_assistant_run_request: CreateHomeworkAssistantRunRequest, background_tasks: BackgroundTasks, homework_service: HomeworkService = Depends(get_homework_service), session: AsyncSession = Depends(get_db)) -> CreateHomeworkAssistantRunResponse:
     homework_assistance_run = await homework_service.create_homework_assistance_run(request=create_homework_assistant_run_request, session=session)
     for step in homework_assistance_run.steps:
@@ -62,7 +64,7 @@ async def trigger_homework_assistance_run(create_homework_assistant_run_request:
     )
 
 
-@homework_assistant_router.get("/{homework_assistance_run_id}")
+@homework_assistant_router.get("/{homework_assistance_run_id}", tags=["homework"])
 async def get_homework_assistance_run_state(homework_assistance_run_id: str, homework_service: HomeworkService = Depends(get_homework_service), session: AsyncSession = Depends(get_db)) -> HomeworkAssistanceRunStatus:
     homework_assistance_run = await homework_service.get_run(homework_assistance_run_id=homework_assistance_run_id, session=session)
     return HomeworkAssistanceRunStatus(
@@ -73,12 +75,12 @@ async def get_homework_assistance_run_state(homework_assistance_run_id: str, hom
     )
 
 
-@homework_assistant_router.post("/chat/{homework_assistance_run_id}")
+@homework_assistant_router.post("/chat/{homework_assistance_run_id}", tags=["homework"])
 async def chat(homework_assistance_run_id: str, messages: list[Message], homework_service: HomeworkService = Depends(get_homework_service), session: AsyncSession = Depends(get_db)):
     return StreamingResponse(homework_service.on_chat_message(session=session, homework_assistance_run_id=homework_assistance_run_id, messages=messages), media_type="text/plain")
 
 
-@user_router.post("/{user_id}/upload-homework/")
+@user_router.post("/{user_id}/upload-homework/", tags=["user"])
 async def upload_homework(
     user_id: str,
     background_tasks: BackgroundTasks,
@@ -131,7 +133,7 @@ async def upload_homework(
     )
 
 
-@homework_assistant_router.get("/status/{homework_assistance_run_id}")
+@homework_assistant_router.get("/status/{homework_assistance_run_id}", tags=["homework"])
 async def get_homework_assistance_run_status(
         homework_assistance_run_id: str,
         homework_service: HomeworkService = Depends(get_homework_service),
@@ -140,17 +142,59 @@ async def get_homework_assistance_run_status(
     step_states = await homework_service.get_homework_assistant_run_steps_states(homework_assistance_run_id=homework_assistance_run_id, session=session)
     return step_states
 
-app = FastAPI()
+
+@homework_assistant_router.get("/run/{homework_assistance_run_id}/tasks", response_model=GetHomeworkAssistanceRunTasksResponse, tags=["homework"])
+async def get_homework_assistance_run_tasks(
+        homework_assistance_run_id: str,
+        homework_service: HomeworkService = Depends(get_homework_service),
+        session: AsyncSession = Depends(get_db),
+) -> GetHomeworkAssistanceRunTasksResponse:
+    homework_assistance_run = await homework_service.get_run(session=session, homework_assistance_run_id=homework_assistance_run_id)
+    return GetHomeworkAssistanceRunTasksResponse(
+        homework_assistance_run_id=homework_assistance_run.id,
+        tasks=[TaskResponse(
+            id=task.id,
+            key=task.key,
+            description=task.description,
+            concepts=task.concepts
+        ) for task in homework_assistance_run.tasks]
+    )
+
+
+def custom_generate_unique_id(route: APIRoute):
+    return f"{route.tags[0]}-{route.name}"
+
+def use_route_names_as_operation_ids(route: APIRoute):
+    route.operation_id = route.name
+    return route.name
+
+
+
+app = FastAPI(openapi_tags=[
+    {
+        "name": "User",
+        "description": "Operations related to users"
+    },
+    {
+        "name": "Homework",
+        "description": "Operations related to the homework assistant"
+    }
+],
+    generate_unique_id_function=use_route_names_as_operation_ids,  # we’ll override it ourselves
+
+)
+
 
 app.include_router(user_router)
 
 app.include_router(homework_assistant_router)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # or restrict to frontend domain
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 if __name__ == "__main__":

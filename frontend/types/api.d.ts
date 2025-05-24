@@ -4,40 +4,6 @@
  */
 
 export interface paths {
-    "/server": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create Server */
-        post: operations["create_server_server_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/server/{server_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete Server */
-        delete: operations["delete_server_server__server_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/user": {
         parameters: {
             query?: never;
@@ -72,28 +38,131 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/user/{user_id}/upload-homework/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Homework */
+        post: operations["upload_homework_user__user_id__upload_homework__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/homework-assistant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Trigger Homework Assistance Run */
+        post: operations["trigger_homework_assistance_run_homework_assistant_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/homework-assistant/{homework_assistance_run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Homework Assistance Run State */
+        get: operations["get_homework_assistance_run_state_homework_assistant__homework_assistance_run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/homework-assistant/chat/{homework_assistance_run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Chat */
+        post: operations["chat_homework_assistant_chat__homework_assistance_run_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/homework-assistant/status/{homework_assistance_run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Homework Assistance Run Status */
+        get: operations["get_homework_assistance_run_status_homework_assistant_status__homework_assistance_run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/homework-assistant/run/{homework_assistance_run_id}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Homework Assistance Run Tasks */
+        get: operations["get_homework_assistance_run_tasks_homework_assistant_run__homework_assistance_run_id__tasks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** CreateServerRequest */
-        CreateServerRequest: {
-            /** Name */
-            name: string;
-        };
-        /** CreateServerResponse */
-        CreateServerResponse: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
+        /** Body_upload_homework_user__user_id__upload_homework__post */
+        Body_upload_homework_user__user_id__upload_homework__post: {
             /**
-             * Started At
-             * Format: date-time
+             * File
+             * Format: binary
              */
-            started_at: string;
-            /** Ended At */
-            ended_at: string | null;
+            file: string;
+        };
+        /** CreateHomeworkAssistantRunRequest */
+        CreateHomeworkAssistantRunRequest: {
+            /** User Id */
+            user_id: string;
+            /** File Id */
+            file_id: string;
+        };
+        /** CreateHomeworkAssistantRunResponse */
+        CreateHomeworkAssistantRunResponse: {
+            /** Homework Assistance Run Id */
+            homework_assistance_run_id: string;
         };
         /** CreateUserRequest */
         CreateUserRequest: {
@@ -103,10 +172,62 @@ export interface components {
         CreateUserResponse: {
             user: components["schemas"]["UserWithIdModel"];
         };
+        /** GetHomeworkAssistanceRunStatusResponse */
+        GetHomeworkAssistanceRunStatusResponse: {
+            /** Homework Assistance Run Id */
+            homework_assistance_run_id: string;
+            /** Step States */
+            step_states: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** GetHomeworkAssistanceRunTasksResponse */
+        GetHomeworkAssistanceRunTasksResponse: {
+            /** Homework Assistance Run Id */
+            homework_assistance_run_id: string;
+            /** Tasks */
+            tasks: components["schemas"]["TaskResponse"][];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * HomeworkAssistanceRunState
+         * @enum {string}
+         */
+        HomeworkAssistanceRunState: "PENDING" | "STARTED" | "SUCCEEDED" | "FAILED";
+        /** HomeworkAssistanceRunStatus */
+        HomeworkAssistanceRunStatus: {
+            /** Homework Assistance Run Id */
+            homework_assistance_run_id: string;
+            /** Labels */
+            labels: string[];
+            state: components["schemas"]["HomeworkAssistanceRunState"];
+            /** Explanation */
+            explanation: string | null;
+        };
+        /** Message */
+        Message: {
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "system" | "assistant";
+            /** Content */
+            content: string;
+        };
+        /** TaskResponse */
+        TaskResponse: {
+            /** Id */
+            id: string;
+            /** Key */
+            key: string;
+            /** Description */
+            description: string;
+            /** Concepts */
+            concepts: string[];
         };
         /** UserModel */
         UserModel: {
@@ -144,70 +265,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    create_server_server_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateServerRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CreateServerResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_server_server__server_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                server_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CreateServerResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     create_user_user_post: {
         parameters: {
             query?: never;
@@ -259,6 +316,202 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserWithIdModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_homework_user__user_id__upload_homework__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_homework_user__user_id__upload_homework__post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateHomeworkAssistantRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    trigger_homework_assistance_run_homework_assistant_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHomeworkAssistantRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateHomeworkAssistantRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_homework_assistance_run_state_homework_assistant__homework_assistance_run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                homework_assistance_run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeworkAssistanceRunStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chat_homework_assistant_chat__homework_assistance_run_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                homework_assistance_run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Message"][];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_homework_assistance_run_status_homework_assistant_status__homework_assistance_run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                homework_assistance_run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetHomeworkAssistanceRunStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_homework_assistance_run_tasks_homework_assistant_run__homework_assistance_run_id__tasks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                homework_assistance_run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetHomeworkAssistanceRunTasksResponse"];
                 };
             };
             /** @description Validation Error */

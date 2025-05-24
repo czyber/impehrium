@@ -8,6 +8,18 @@
       <FileUploadCard @upload="handleUpload"/>
     </transition>
     <div class="flex flex-col min-w-full overflow-hidden">
+      <div>
+        <Card v-for="task in extractedTasks" :key="task.id" class="mb-4">
+          <CardHeader>
+            <CardTitle>{{ task.key }}</CardTitle>
+            <CardDescription>{{ task.description }}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <MarkdownComponent :content="task.description"/>
+          </CardContent>
+
+        </Card>
+      </div>
       <!-- Explanation Section -->
       <Card class="h-full flex flex-col ">
         <CardHeader>
@@ -85,12 +97,14 @@ import { Button } from '@/components/ui/button'
 import MarkdownComponent from '~/components/MarkdownComponent.vue'
 import { useRuntimeConfig } from '#imports'
 import {useHomeworkAssistantStore} from "~/stores/homework-assistant-store";
+import {HomeworkService} from "~/src/client";
 
 const homeworkAssitantRunId = ref<string | null>(null)
 const userStore = useUserStore()
 const homeworkAssistantStore = useHomeworkAssistantStore()
 const { selectedFile } = storeToRefs(homeworkAssistantStore)
 await userStore.fetchUser()
+const extractedTasks = ref(null)
 
 async function handleUpload() {
   if (!selectedFile.value) return
@@ -112,7 +126,6 @@ async function handleUpload() {
   const result = await res.json()
   homeworkAssitantRunId.value = result.homework_assistance_run_id
   await pollWorkflowSteps(result.homework_assistance_run_id)
-  // console.log("Started homework assistance run: ", result.homework_assistance_run_id)
 }
 
 interface Message {
@@ -134,8 +147,6 @@ interface StepResultMap {
   explanation: string
 }
 
-const stepResults = ref<Partial<StepResultMap>>({})
-const explanation = computed(() => stepResults.value.explanation || '')
 const currentHomeworkAssistanceRun = ref(null)
 
 async function pollWorkflowSteps(runId: string) {
@@ -158,7 +169,13 @@ async function pollWorkflowSteps(runId: string) {
       for (const step of steps) {
         const { name, state } = step
 
+
         if (state === 'SUCCEEDED' && !completedSteps.value.has(name)) {
+          if (name === "EXTRACT_TASKS") {
+            const {data}= await HomeworkService.getHomeworkAssistanceRunTasks({path: {homework_assistance_run_id: runId}})
+            extractedTasks.value = data?.tasks
+            console.log(extractedTasks.value)
+          }
           const res = await fetch(`${baseUrl}/homework-assistant/${runId}`)
           const result = await res.json()
 

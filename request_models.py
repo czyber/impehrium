@@ -56,6 +56,19 @@ class CreateUserResponse(BaseModel):
 class CreateHomeworkAssistantRunResponse(BaseModel):
     homework_assistance_run_id: str
 
+
 class GetHomeworkAssistanceRunStatusResponse(BaseModel):
     homework_assistance_run_id: str
     step_states: list[dict]
+
+
+class TaskResponse(BaseModel):
+    id: str
+    key: str
+    description: str
+    concepts: list[str]
+
+
+class GetHomeworkAssistanceRunTasksResponse(BaseModel):
+    homework_assistance_run_id: str
+    tasks: list[TaskResponse]

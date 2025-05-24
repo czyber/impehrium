@@ -1,7 +1,10 @@
-import asyncio
+import xml.etree.ElementTree
+
 
 from PIL import Image
-from pdf2image import convert_from_path
+
+import tempfile
+from pdf2image import convert_from_bytes
 import base64
 from io import BytesIO
 import os
@@ -10,20 +13,18 @@ import textwrap
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
-from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from request_models import CreateHomeworkAssistantRunRequest, Message, GetHomeworkAssistanceRunStatusResponse
 import uuid
 from enums import HomeworkAssistanceRunState, HomeworkAssistanceRunStepState, HomeworkAssistanceRunStepName
-from utils.db import sessionmanager, DatabaseSessionManager, DATABASE_URL
+from utils.db import DatabaseSessionManager, DATABASE_URL
 
 
 from abc import ABC, abstractmethod
-import asyncio
 from sqlalchemy import select
 from enums import HomeworkAssistanceRunStepName
-from models import HomeworkAssistanceRun, HomeworkAssistanceRunStep, Media
+from models import HomeworkAssistanceRun, HomeworkAssistanceRunStep, Media, Task
 from utils.db import sessionmanager
 from utils.utils import get_supabase_client
 
@@ -86,12 +87,6 @@ class LabelingStepLogic(AbstractStepLogic):
             await session.commit()
             return True
 
-import tempfile
-from pdf2image import convert_from_bytes
-import base64
-from io import BytesIO
-import os
-
 class ExtractTasksStepLogic(AbstractStepLogic):
     @classmethod
     def step_name(cls) -> HomeworkAssistanceRunStepName:
@@ -145,7 +140,7 @@ class ExtractTasksStepLogic(AbstractStepLogic):
                     {
                         "role": "user",
                         "content": [
-                            {"type": "text", "text": "Extract all homework tasks from this image and respond with XML structure:\n<tasks>\n  <task>\n    <exercise-identifier>The identifier or task name (e.g. Exercise 321)</exercise-identifier>\n    <exercise-description>The extracted text of the description of the exercise</exercise-description>\n  </task>\n  ...\n</tasks>"},
+                            {"type": "text", "text": "Extract all homework tasks from this image and respond with XML structure:\n<tasks>\n  <task>\n    <exercise-identifier>The identifier or task name (e.g. Exercise 321)</exercise-identifier>\n    <exercise-description>The extracted text of the description of the exercise</exercise-description><exercise-concepts>\n    <concept>\n    Concept used, one phrase, use multiple concept tags for multiple concepts(e.g. fractions, integrals)\n    </concept>\n  </exercise-concepts></task>\n  ...\n</tasks>"},
                             {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}},
                         ],
                     }
@@ -153,13 +148,42 @@ class ExtractTasksStepLogic(AbstractStepLogic):
                 stream=True,
             )
 
-            complete_message = ""
+            buffer = ""
             async for message in response:
                 if hasattr(message.choices[0], "delta") and hasattr(message.choices[0].delta, "content"):
-                    complete_message += message.choices[0].delta.content or ""
-            print(complete_message)
+                    content = message.choices[0].delta.content or ""
+                    buffer += content
 
-            run.extracted_tasks = complete_message
+                    while "<task>" in buffer and "</task>" in buffer:
+                        print(buffer)
+                        start = buffer.find("<task>")
+                        end = buffer.find("</task>") + len("</task>")
+
+                        task_xml = buffer[start:end]
+
+                        try:
+                            task_element = xml.etree.ElementTree.fromstring(task_xml)
+                            identifier = task_element.find("exercise-identifier").text.strip()
+                            description = task_element.find("exercise-description").text.strip()
+                            concepts = [concept.text.strip() for concept in task_element.find("exercise-concepts").findall("concept")]
+
+                            task = Task(
+                                id=str(uuid.uuid4()),
+                                description=description,
+                                concepts=concepts,
+                                key=identifier,
+                                run_id=run_id,
+                            )
+
+                            session.add(task)
+                            await session.commit()
+
+                        except xml.etree.ElementTree.ParseError as err:
+                            print("XML Parse error", err)
+
+                        buffer = buffer[end:]
+
+            run.extracted_tasks = buffer
             step.state = HomeworkAssistanceRunStepState.SUCCEEDED
 
             session.add(run)
@@ -243,7 +267,7 @@ class ExplanationStepLogic(AbstractStepLogic):
 class StepLogicFactory:
     _registry: dict[HomeworkAssistanceRunStepName, type[AbstractStepLogic]] = {
         LabelingStepLogic.step_name(): LabelingStepLogic,
-        ExplanationStepLogic.step_name(): ExplanationStepLogic,
+        #ExplanationStepLogic.step_name(): ExplanationStepLogic,
         ExtractTasksStepLogic.step_name(): ExtractTasksStepLogic,
     }
 
@@ -266,9 +290,9 @@ class HomeworkService:
                 HomeworkAssistanceRunStep(
                     step_name=HomeworkAssistanceRunStepName.LABELING,
                 ),
-                HomeworkAssistanceRunStep(
-                    step_name=HomeworkAssistanceRunStepName.EXPLANATION,
-                ),
+                # HomeworkAssistanceRunStep(
+                #     step_name=HomeworkAssistanceRunStepName.EXPLANATION,
+                # ),
                 HomeworkAssistanceRunStep(
                     step_name=HomeworkAssistanceRunStepName.EXTRACT_TASKS
                 )
